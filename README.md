@@ -4,8 +4,8 @@ PyGLbuffers
 
 PyGLbuffers aims to completely wraps the opengl2.1 buffer api in a python module. 
 PyGLbuffers provides a pythonic OOP api that hides the lower level (ctypes) calls. 
-PyGLbuffers provides a high level api and a low level api, and it can be integrated easily with 
-existing code because it does not occlude the underlying opengl values.
+PyGLbuffers can be integrated easily with existing code because it does not 
+occlude the underlying opengl values.
 
 PyGLbuffers was programmed using very high standards. This means that PyGLbuffers 
 is fully tested and it comes with an exhaustive documentation (this file). The code is DRYer 
@@ -177,7 +177,7 @@ Buffer.pixel_pack(format, usage=GL_STATIC_DRAW)   #GL_PIXEL_PACK_BUFFER
 Buffer.pixel_unpack(format, usage=GL_STATIC_DRAW) #GL_PIXEL_UNPACK_BUFFER
 ```
 
-** The binding point **  
+**The binding point**  
 Each of these methods create a buffer with a different default binding point. The binding point
 is not static, it can be changed anytime by setting the field **target**. 
 During the instanciation, the buffer object is bound to their binding point to finalize its creation.
@@ -185,13 +185,13 @@ The default binding point will be used for every methods that require the buffer
 to set the binding explicitly, with some exceptions. The most notable one is when
 the python syntax is used to fill a buffer with data (see [writing to buffers](#feed)).
  
-** The format **  
+**The format**  
 The buffer data is packed as raw c arrays of struct. In order to tell python how it should
 pack/unpack the data, a BufferFormat is used. For convenience, a buffer format can be created from
 a string. Buffer formats created from strings are cached. Ie: creating two buffer with the same
 format will not create two buffer format object. For more details see [buffer formats](#format).
 
-** Usage **  
+**Usage**  
 The usage is no different from the opengl usage. It uses the same constants.
 
 Example:  
@@ -209,7 +209,7 @@ to create the object.
 A format string is composed of N format token.  
 A format token follow these rules: ({number}{format char})[{name}]  
 Whitespaces are ignored. Ideally, a token name should match the shaders attribute vars.
-The token names are also used when unpacking a buffer data. See [reading to buffers](#feed).
+The token names are also used when unpacking a buffer data. See also [reading from buffers](#feed).
 
 Available format char:
 
@@ -358,10 +358,10 @@ buffer = Buffer(my_buffer, '(4f)[foo]', owned=True)
 
 <a name="buffer"/>  
 ### **Buffer**  
->**Buffer(object)**
-Wrapper over an opengl buffer.
-    
-**Slots**:
+>**Buffer(object)**  
+>Wrapper over an opengl buffer.
+>    
+>**Slots**:
 >- *bid*: Underlying buffer identifier
 >- *data*: Object that allows pythonic access to the buffer data
 >- *target*: Buffer target (ex: GL_ARRAY_BUFFER)
