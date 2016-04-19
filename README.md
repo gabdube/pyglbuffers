@@ -245,16 +245,13 @@ writing is done using the python slice syntax.
 
 **Initializing**  
 The first thing to do after creating a buffer is to set its capacity. If the data is already available
-it is possible to set the data directly by assigning a value to the **data** field. Of course, the data must match
+it is possible to set the data directly by calling the init method (not to be confused with __init__). Of course, the data must match
 the buffer format. If something does not match, an error will be raised.
 
 ```python
 buffer = Buffer.array('(3f)[position](4f)(color)', GL_DYNAMIC_DRAW)
 my_data = ((30,20,30), (1,1,1,1)), ((30,20,30), (1,1,1,1))
-
-buffer.data = my_data
-# or
-buffer.data.buffer(my_data)
+buffer.init(my_data)
 ```
 
 If the data is not available, it is possible to reserve space using **reserve**.
@@ -263,11 +260,11 @@ Reserve will reserve space for n elements in the buffer. Data will be zeroed.
 ```python
 buffer = Buffer.array('(3f)[position](4f)(color)', GL_DYNAMIC_DRAW)
 
-buffer.data.reserve(1000)
+buffer.reserve(1000)
 ```
 
 **Writing**  
-Writing is done using the slice syntax on the buffer data field. Buffers do not
+Writing is done using the slice syntax on the buffer. Buffers do not
 support implicit resizing, so assigning too much or not enough data will raise an error.
 
 Each time data is written, the buffer is bound to the default binding point and 
@@ -278,10 +275,10 @@ When the buffer is not mapped, slice steps other than "1" and "-1" are not suppo
 
 ```python
 buffer = Buffer.array('(3f)[position](4f)(color)', GL_DYNAMIC_DRAW)
-buffer.data.reserve(1000)
+buffer.reserve(1000)
 
-buffer.data[0:10] = ((1,1,1), (1,1,1,1))*10
-buffer.data[10] = ((2,2,2), (2,2,2,2))
+buffer[0:10] = ((1,1,1), (1,1,1,1))*10
+buffer[10] = ((2,2,2), (2,2,2,2))
 ```
 
 **Reading**  
@@ -292,9 +289,9 @@ Unlike writing, steps are supported even if the buffer is not mapped.
 
 ```python
 buffer = Buffer.array('(3f)[position](4f)(color)', GL_DYNAMIC_DRAW)
-buffer.data = ((5.0, 4.0, 83.32), (0.5, 0.5, 0.5, 0.5))
+buffer.init( ((5.0, 4.0, 83.32), (0.5, 0.5, 0.5, 0.5)) )
 
-print(buffer.data[0])
+print(buffer[0])
 # V(position=(5.0, 4.0, 83.32), color=(0.5, 0.5, 0.5, 0.5))
 ```
 
@@ -403,6 +400,22 @@ buffer = Buffer(my_buffer, '(4f)[foo]', owned=True)
 >Unmap the buffer. Will raise a BufferError if the buffer is not mapped.
 
 ♣
+>**BufferData.init(self, data)**  
+>Fill the buffer data with "data". Data must be formatted using the
+>parent buffer format. This calls glBufferData. To initialize a buffer
+>without data (ie: only reserving space), use reserve().
+>
+>Parameters:
+>data: Data to use to initialize the buffer.
+
+♣
+>**BufferData.reserve(self, length)**  
+>Fill the buffers with "length" zeroed elements.
+>            
+>Parameters:
+>    length: Number of element the buffer will be able to hold
+
+♣
 >**Buffer.__bool__(self)**  
 >
 >     bool(buffer)
@@ -416,42 +429,18 @@ buffer = Buffer(my_buffer, '(4f)[foo]', owned=True)
 >     
 > Return the number of elements in the buffer
 
-### **BufferData**  
->**BufferData(object)**  
->Wrapper over an opengl buffer. Wraps data access in a pythonic way.
->This object is created with a Buffer and must not be instanced manually.
->
-
-♣
->**BufferData.buffer(self, data)**  
->Fill the buffer data with "data". Data must be formatted using the
->parent buffer format. This calls glBufferData. To initialize a buffer
->without data (ie: only reserving space), use reserve().
->
->This method is called when assiging values to the data field of a buffer.
->Ex: buffer.data = ( (1.0, 2.0, 3.0, 4.0),  )
->
->Parameters:
->data: Data to use to initialize the buffer.
-
-♣
->**BufferData.reserve(self, length)**  
->Fill the buffers with "length" zeroed elements.
->            
->Parameters:
->    length: Number of element the buffer will be able to hold
 
 ♣
 >**Buffer__getitem__(self, key)**  
 >
->     buffer.data[key]
+>     buffer[key]
 >     
 > Read the buffer data
 
 ♣
 >**Buffer.__setitem__(self, key, value)**  
 >
->     buffer.data[key] = value
+>     buffer[key] = value
 >     
 > Set the buffer data
 

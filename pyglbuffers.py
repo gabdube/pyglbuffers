@@ -343,164 +343,6 @@ class BufferFormat(object):
             data_dict[t.name] = tuple(getattr(data, t.name))
         
         return self.item(**data_dict)
-
-class BufferData(object):
-    """
-        Wrapper over an opengl buffer. Wraps data access in a pythonic way.
-        This object is created with a Buffer and must not be instanced manually.
-        
-        Slots:
-            buffer: Weakref to the parent buffer object
-    """
-    
-    __slots__ = ['buf']
-    
-    def __init__(self, buffer):
-        self.buf = weakref.ref(buffer)
-        
-    def buffer(self, data):
-        """
-            Fill the buffer data with "data". Data must be formatted using the
-            parent buffer format. This calls glBufferData. To initialize a buffer
-            without data (ie: only reserving space), use reserve().
-            
-            This method is called when assiging values to the data field of a buffer.
-            Ex: buffer.data = ( (1.0, 2.0, 3.0, 4.0),  )
-            
-            Parameters:
-                data: Data to use to initialize the buffer.
-        """
-        buffer = self.buf()
-        if buffer is None:
-            raise RuntimeError('Buffer was freed')
-            
-        buffer.bind()
-        cdata = buffer.format.pack(data)
-        glBufferData(buffer.target, sizeof(cdata), ptr_array(cdata), buffer._usage)
-        
-    def reserve(self, length):
-        """
-            Fill the buffers with "length" zeroed elements.
-            
-            Parameters:
-                length: Number of element the buffer will be able to hold
-        """
-        buffer = self.buf()
-        if buffer is None:
-            raise RuntimeError('Buffer was freed')
-            
-        buffer.bind()
-        glBufferData(buffer.target, sizeof(buffer.format.struct)*length, c_void_p(0), buffer._usage)
-    
-    def __getitem_mapped(self, buffer, key):
-        " Called by __getitem__ if the buffer content is mapped locally "
-        info = buffer.mapinfo
-        if info.access == GL_WRITE_ONLY:
-            raise BufferError("Impossible to read to a buffer mapped with GL_WRITE_ONLY")
-            
-        blen = info.size
-        
-        if isinstance(key, int):
-            key = eval_index(key, blen)
-            return buffer.format.unpack_single(info.ptr[key])
-        else: 
-            start, stop, step = eval_slice(key, blen)
-            return buffer.format.unpack(info.ptr[start:stop:step])
-        
-    def __setitem_mapped(self, buffer, key, value):
-        " Called by __setitem__ if the buffer content is mapped locally "
-        info = buffer.mapinfo        
-        if buffer.mapinfo.access == GL_READ_ONLY:
-            raise BufferError("Impossible to write to a buffer mapped with GL_READ_ONLY")
-            
-        blen = info.size
-        
-        if isinstance(key, int):
-            key = eval_index(key, blen)
-            info.ptr[key] = buffer.format.pack((value,))[0]
-        else: 
-            start, stop, step = eval_slice(key, blen)
-            if step == -1:
-                value = list(reversed(value))
-                step = 1
-                
-            # Ctypes pointers do not support slicing assignment
-            for count, i in enumerate(range(start, stop, step)):
-                info.ptr[i] = buffer.format.pack((value[count],))[0]
-    
-    def __getitem__(self, key):
-        buffer = self.buf()
-        if buffer is None:
-            raise RuntimeError('Buffer was freed')
-            
-        if not isinstance(key, int) and not isinstance(key, slice):
-            raise KeyError('Key must be an integer or a slice, got {}'.format(type(key).__qualname__))
-
-        if buffer.mapinfo is not None:
-            return self.__getitem_mapped(buffer, key)
-
-        buffer.bind()            
-        blen = len(buffer) 
-       
-        if isinstance(key, int):
-            key = eval_index(key, blen)
-            
-            buf = buffer.format.struct()
-            buf_size = sizeof(buf)
-            glGetBufferSubData(buffer.target, key*buf_size, buf_size, byref(buf))
-            
-            return buffer.format.unpack_single(buf)
-        
-        else:
-            start, stop, step = eval_slice(key, blen)
-            buf_len = stop-start
-            buf = (buffer.format.struct*buf_len)()
-            buf_size = sizeof(buf)
-            buf_offset = start * sizeof(buffer.format.struct)
-            
-            glGetBufferSubData(buffer.target, buf_offset, buf_size, byref(buf))
-            
-            return buffer.format.unpack(buf[::step])
-            
-    def __setitem__(self, key, value):
-        buffer = self.buf()
-        if buffer is None:
-            raise RuntimeError('Buffer was freed')
-            
-        if not isinstance(key, int) and not isinstance(key, slice):
-            raise KeyError('Key must be an integer or a slice, got {}'.format(type(key).__qualname__))
-
-        if buffer.mapinfo is not None:
-            return self.__setitem_mapped(buffer, key, value)
-
-        buffer.bind()
-        blen = len(buffer)            
-            
-        if isinstance(key, int):
-            key = eval_index(key, blen)
-            buf = buffer.format.pack((value,))
-            buf_size = sizeof(buf)
-            glBufferSubData(buffer.target, key*buf_size, buf_size, byref(buf))
-            
-        else:
-            if key.step is not None and key.step not in (1, -1):
-                raise NotImplementedError('Unmapped buffer write do not support steps different than 1.')
-            if key.step == -1:
-                value = list(reversed(value))                
-                
-            start, stop, step = eval_slice(key, blen)
-            if stop-start != len(value):
-                raise ValueError("Buffer do not support resizing")
-                
-            buf = buffer.format.pack(value)
-            buf_size = sizeof(buffer.format.struct) * (stop-start)
-            buf_offset = start * sizeof(buffer.format.struct)
-                
-            
-            glBufferSubData(buffer.target, buf_offset, buf_size, byref(buf))
-            
-    def __repr__(self):
-        return repr(self[::])
             
 class Buffer(object):
     """
@@ -528,7 +370,6 @@ class Buffer(object):
         self.format = BufferFormat.new(format)
         self.target = None
         self.mapinfo = None
-        object.__setattr__(self, 'data', BufferData(self))           # The set on data is overrided, so it must be setted this way
 
     @staticmethod
     def __alloc(cls, target, format, usage): 
@@ -541,7 +382,6 @@ class Buffer(object):
         buf.format = BufferFormat.new(format)
         buf.target = target
         buf.mapinfo = None
-        object.__setattr__(buf, 'data', BufferData(buf))
         
         return buf
         
@@ -623,6 +463,140 @@ class Buffer(object):
         glUnmapBuffer(self.mapinfo.target)
         self.mapinfo = None
         
+    def init(self, data, target=None):
+        """
+            Fill the buffer data with "data". Data must be formatted using the
+            parent buffer format. This calls glBufferData. To initialize a buffer
+            without data (ie: only reserving space), use reserve().
+            
+            This method is called when assiging values to the data field of a buffer.
+            Ex: buffer.data = ( (1.0, 2.0, 3.0, 4.0),  )
+            
+            Parameters:
+                data: Data to use to initialize the buffer.
+        """
+        if target is None:
+            target = self.target
+            
+        self.bind(target)
+        cdata = self.format.pack(data)
+        glBufferData(target, sizeof(cdata), ptr_array(cdata), self._usage)
+        
+    def reserve(self, length, target=None):
+        """
+            Fill the buffers with "length" zeroed elements.
+            
+            Parameters:
+                length: Number of element the buffer will be able to hold
+        """
+        if target is None:
+            target = self.target
+            
+        self.bind()
+        glBufferData(target, sizeof(self.format.struct)*length, c_void_p(0), self._usage)
+    
+    def __getitem_mapped(self, buffer, key):
+        " Called by __getitem__ if the buffer content is mapped locally "
+        info = buffer.mapinfo
+        if info.access == GL_WRITE_ONLY:
+            raise BufferError("Impossible to read to a buffer mapped with GL_WRITE_ONLY")
+            
+        blen = info.size
+        
+        if isinstance(key, int):
+            key = eval_index(key, blen)
+            return buffer.format.unpack_single(info.ptr[key])
+        else: 
+            start, stop, step = eval_slice(key, blen)
+            return buffer.format.unpack(info.ptr[start:stop:step])
+        
+    def __setitem_mapped(self, buffer, key, value):
+        " Called by __setitem__ if the buffer content is mapped locally "
+        info = buffer.mapinfo        
+        if buffer.mapinfo.access == GL_READ_ONLY:
+            raise BufferError("Impossible to write to a buffer mapped with GL_READ_ONLY")
+            
+        blen = info.size
+        
+        if isinstance(key, int):
+            key = eval_index(key, blen)
+            info.ptr[key] = buffer.format.pack((value,))[0]
+        else: 
+            start, stop, step = eval_slice(key, blen)
+            if step == -1:
+                value = list(reversed(value))
+                step = 1
+                
+            # Ctypes pointers do not support slicing assignment
+            for count, i in enumerate(range(start, stop, step)):
+                info.ptr[i] = buffer.format.pack((value[count],))[0]
+    
+    def __getitem__(self, key):
+        if not isinstance(key, int) and not isinstance(key, slice):
+            raise KeyError('Key must be an integer or a slice, got {}'.format(type(key).__qualname__))
+
+        if self.mapinfo is not None:
+            return self.__getitem_mapped(self, key)
+
+        self.bind()            
+        blen = len(self) 
+       
+        if isinstance(key, int):
+            key = eval_index(key, blen)
+            
+            buf = self.format.struct()
+            buf_size = sizeof(buf)
+            glGetBufferSubData(self.target, key*buf_size, buf_size, byref(buf))
+            
+            return self.format.unpack_single(buf)
+        
+        else:
+            start, stop, step = eval_slice(key, blen)
+            buf_len = stop-start
+            buf = (self.format.struct*buf_len)()
+            buf_size = sizeof(buf)
+            buf_offset = start * sizeof(self.format.struct)
+            
+            glGetBufferSubData(self.target, buf_offset, buf_size, byref(buf))
+            
+            return self.format.unpack(buf[::step])
+            
+    def __setitem__(self, key, value):
+        if not isinstance(key, int) and not isinstance(key, slice):
+            raise KeyError('Key must be an integer or a slice, got {}'.format(type(key).__qualname__))
+
+        if self.mapinfo is not None:
+            return self.__setitem_mapped(self, key, value)
+
+        self.bind()
+        blen = len(self)            
+            
+        if isinstance(key, int):
+            key = eval_index(key, blen)
+            buf = self.format.pack((value,))
+            buf_size = sizeof(buf)
+            glBufferSubData(self.target, key*buf_size, buf_size, byref(buf))
+            
+        else:
+            if key.step is not None and key.step not in (1, -1):
+                raise NotImplementedError('Unmapped buffer write do not support steps different than 1.')
+            if key.step == -1:
+                value = list(reversed(value))                
+                
+            start, stop, step = eval_slice(key, blen)
+            if stop-start != len(value):
+                raise ValueError("Buffer do not support resizing")
+                
+            buf = self.format.pack(value)
+            buf_size = sizeof(self.format.struct) * (stop-start)
+            buf_offset = start * sizeof(self.format.struct)
+                
+            
+            glBufferSubData(self.target, buf_offset, buf_size, byref(buf))
+            
+    def __repr__(self):
+        return repr(self[::])
+        
     def __enter__(self):
         self.map()
 
@@ -632,16 +606,6 @@ class Buffer(object):
             return True
         
         return False
-        
-    def __setattr__(self, name, value):
-        if name == 'data':
-            # Override the default setting behaviour on data
-            self.data.buffer(value)
-            return None
-        elif name in Buffer.__slots__:
-            return object.__setattr__(self, name, value)
-        
-        raise AttributeError('No field named "{}" found'.format(name))        
         
     def __bool__(self):
         return self.valid() 

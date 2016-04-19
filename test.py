@@ -235,7 +235,7 @@ class TestBuffersFormat(unittest.TestCase):
             self.assertEqual(d2[1], f2upd[index].color)
         
     def test_unpack_fail(self):
-        " Test upacking bad data data"
+        " Test unpacking bad data "
         f1 = BufferFormat.from_string('(3f)[foo]')
         f2 = BufferFormat.from_string('(3i)[foo]')
         
@@ -312,7 +312,7 @@ class TestBuffers(unittest.TestCase):
     def test_reserve(self):
         ' Test reserve '
         buf1 = Buffer.array('(4f)[foo]', usage=GL_DYNAMIC_DRAW)  
-        buf1.data.reserve(200)
+        buf1.reserve(200)
         
         self.assertEqual(GL_DYNAMIC_DRAW, buf1.usage)
         self.assertEqual(200, len(buf1))
@@ -326,81 +326,81 @@ class TestBuffers(unittest.TestCase):
         self.assertEqual(0, len(buf1))
         self.assertEqual(0, buf1.size)
         
-        buf1.data = [(y,)*4 for y in [x for x in range(10)]]
+        buf1.init([(y,)*4 for y in [x for x in range(10)]])
         
         self.assertEqual(GL_DYNAMIC_DRAW, buf1.usage)
         self.assertEqual(10, len(buf1))
         self.assertEqual(160, buf1.size)
         
-        get = lambda x, y, z: tuple([x.foo for x in buf1.data[x:y:z]])  
+        get = lambda x, y, z: tuple([x.foo for x in buf1[x:y:z]])  
         
-        self.assertEqual((0,0,0,0), buf1.data[0].foo)
+        self.assertEqual((0,0,0,0), buf1[0].foo)
         self.assertEqual(((1,1,1,1), (2,2,2,2)), get(1,3,1))
         self.assertEqual(((1,1,1,1), (3,3,3,3)), get(1,4,2))
         
-        buf1.data[0] = (10,)*4
-        buf1.data[1] = ((11,)*4,)
-        buf1.data[2:5] = ((12,)*4, (13,)*4, (14,)*4)
-        buf1.data[8:5:-1] = ((15,)*4, (16,)*4, (17,)*4,)
+        buf1[0] = (10,)*4
+        buf1[1] = ((11,)*4,)
+        buf1[2:5] = ((12,)*4, (13,)*4, (14,)*4)
+        buf1[8:5:-1] = ((15,)*4, (16,)*4, (17,)*4,)
         
-        self.assertEqual((10,10,10,10), buf1.data[0].foo)
-        self.assertEqual((11,11,11,11), buf1.data[1].foo)
+        self.assertEqual((10,10,10,10), buf1[0].foo)
+        self.assertEqual((11,11,11,11), buf1[1].foo)
         
-        for i, j in zip(buf1.data[2:5], ((12,)*4, (13,)*4, (14,)*4)):
+        for i, j in zip(buf1[2:5], ((12,)*4, (13,)*4, (14,)*4)):
             self.assertEqual(j, i.foo)
             
-        for i, j in zip(buf1.data[8:5:-1], ((15,)*4, (16,)*4, (17,)*4)):
+        for i, j in zip(buf1[8:5:-1], ((15,)*4, (16,)*4, (17,)*4)):
             self.assertEqual(j, i.foo)
             
     def test_get_set_mapped(self):        
         buf1 = Buffer.array('(4f)[foo]', usage=GL_DYNAMIC_DRAW)
-        buf1.data = [(y,)*4 for y in [x for x in range(10)]]
+        buf1.init([(y,)*4 for y in [x for x in range(10)]])
         
-        get = lambda x, y, z: tuple([x.foo for x in buf1.data[x:y:z]])          
+        get = lambda x, y, z: tuple([x.foo for x in buf1[x:y:z]])          
         
         self.assertEqual(GL_FALSE, buf1.mapped)        
         with buf1:
             self.assertEqual(GL_TRUE, buf1.mapped)
 
-            self.assertEqual((0,0,0,0), buf1.data[0].foo)
+            self.assertEqual((0,0,0,0), buf1[0].foo)
             self.assertEqual(((1,1,1,1), (2,2,2,2)), get(1,3,1))
             self.assertEqual(((1,1,1,1), (3,3,3,3)), get(1,4,2))
             
-            buf1.data[0] = (10,)*4
-            buf1.data[1] = ((11,)*4,)
-            buf1.data[2:5] = ((12,)*4, (13,)*4, (14,)*4)
-            buf1.data[8:5:-1] = ((15,)*4, (16,)*4, (17,)*4,)
+            buf1[0] = (10,)*4
+            buf1[1] = ((11,)*4,)
+            buf1[2:5] = ((12,)*4, (13,)*4, (14,)*4)
+            buf1[8:5:-1] = ((15,)*4, (16,)*4, (17,)*4,)
             
         self.assertEqual(GL_FALSE, buf1.mapped)  
         
-        self.assertEqual((10,10,10,10), buf1.data[0].foo)
-        self.assertEqual((11,11,11,11), buf1.data[1].foo)
+        self.assertEqual((10,10,10,10), buf1[0].foo)
+        self.assertEqual((11,11,11,11), buf1[1].foo)
         
-        for i, j in zip(buf1.data[2:5], ((12,)*4, (13,)*4, (14,)*4)):
+        for i, j in zip(buf1[2:5], ((12,)*4, (13,)*4, (14,)*4)):
             self.assertEqual(j, i.foo)
 
-        for i, j in zip(buf1.data[8:5:-1], ((15,)*4, (16,)*4, (17,)*4)):
+        for i, j in zip(buf1[8:5:-1], ((15,)*4, (16,)*4, (17,)*4)):
             self.assertEqual(j, i.foo)
             
     
     def test_get_set_fail(self):
         " Test Get/Set with bad values"
         buf1 = Buffer.array('(4f)[foo]', usage=GL_DYNAMIC_DRAW)
-        buf1.data = [(y,)*4 for y in [x for x in range(3)]]
+        buf1.init([(y,)*4 for y in [x for x in range(3)]])
         
         buf2 = Buffer.array('(4f)[foo]')
         
         with self.assertRaises(KeyError) as err1:
-            buf1.data[None]
+            buf1[None]
             
         with self.assertRaises(ValueError) as err2:
-            buf1.data[0:2] = ((12,)*4, (13,)*4, (14,)*4)
+            buf1[0:2] = ((12,)*4, (13,)*4, (14,)*4)
             
         with self.assertRaises(NotImplementedError) as err3:
-            buf1.data[0:2:2] = (1,1,1,1)
+            buf1[0:2:2] = (1,1,1,1)
             
         with self.assertRaises(IndexError) as err4:
-            buf2.data[0:3] = [1,2] 
+            buf2[0:3] = [1,2] 
             
         self.assertEqual('\'Key must be an integer or a slice, got NoneType\'', str(err1.exception))
         self.assertEqual('Buffer do not support resizing', str(err2.exception))
@@ -411,7 +411,6 @@ class TestBuffers(unittest.TestCase):
         " Test freeing buffer "
         buf1 = Buffer.array('(4f)[foo]')  
         bid1 = buf1.bid
-        data = buf1.data
         
         buf2 = Buffer(create_raw_buffer(), '(4f)[foo]', owned=False)
         bid2 = buf2.bid
@@ -422,20 +421,7 @@ class TestBuffers(unittest.TestCase):
         
         self.assertEqual(GL_FALSE, glIsBuffer(bid1), 'Buffer is still valid')
         self.assertEqual(GL_TRUE, glIsBuffer(bid2), 'Buffer is not valid')
-        
-        with self.assertRaises(RuntimeError, msg="Buffer is still alive") as cm1:
-            data.buffer( ((1.0, 2.0, 3.0, 4.0),) )
-            
-        with self.assertRaises(RuntimeError, msg="Buffer is still alive") as cm2:
-            data[0]
-            
-        with self.assertRaises(RuntimeError, msg="Buffer is still alive") as cm3:
-            data[0] = (20.0, 2.0, 3.0, 4.0),
-            
-        self.assertEqual('Buffer was freed', str(cm1.exception), msg='Exception do not match')
-        self.assertEqual('Buffer was freed', str(cm2.exception), msg='Exception do not match')
-        self.assertEqual('Buffer was freed', str(cm3.exception), msg='Exception do not match')
-        
+
         glDeleteBuffers(1, byref(bid2))
         
 class TestExtensions(unittest.TestCase):
