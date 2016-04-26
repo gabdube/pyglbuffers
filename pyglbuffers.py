@@ -32,7 +32,9 @@ from pyglet.gl import (GL_ARRAY_BUFFER, GL_ELEMENT_ARRAY_BUFFER, GL_PIXEL_PACK_B
   GL_PIXEL_UNPACK_BUFFER, GL_STATIC_COPY, GL_STATIC_DRAW, GL_STATIC_READ,
   GL_DYNAMIC_COPY, GL_DYNAMIC_DRAW, GL_DYNAMIC_READ, GL_STREAM_COPY, GL_STREAM_DRAW,
   GL_STREAM_READ, GL_TRUE, GL_BUFFER_SIZE, GL_READ_ONLY, GL_WRITE_ONLY, GL_READ_WRITE,
-  GL_BUFFER_MAPPED, GL_BUFFER_ACCESS, GL_BUFFER_USAGE, GL_BUFFER_MAP_POINTER)
+  GL_BUFFER_MAPPED, GL_BUFFER_ACCESS, GL_BUFFER_USAGE, GL_BUFFER_MAP_POINTER, 
+  GL_FLOAT, GL_DOUBLE, GL_BYTE, GL_UNSIGNED_BYTE, GL_INT, GL_UNSIGNED_INT,
+  GL_SHORT, GL_UNSIGNED_SHORT)
 
 try:
     import pyglbuffers_extensions
@@ -41,7 +43,7 @@ try:
 except:
     NO_EXTENSIONS = True
 
-import weakref, re
+import re
 from ctypes import byref, Structure, cast, POINTER, sizeof, c_void_p
 from functools import lru_cache, namedtuple
 from collections.abc import Sequence
@@ -50,9 +52,11 @@ from sys import modules
 #Loaded extensions name are added in here
 LOADED_EXTENSIONS = []
 
-BUFFER_FORMAT_TYPES_MAP = { 'f': GLfloat, 'd': GLdouble, 'b': GLbyte, 'B': GLubyte,
-                            'i': GLint, 'I': GLuint, 's': GLshort, 'S': GLushort}
-
+BUFFER_FORMAT_TYPES_MAP = { 'f': (GLfloat, GL_FLOAT), 'd': (GLdouble, GL_DOUBLE),
+                            'b': (GLbyte, GL_BYTE), 'B': (GLubyte, GL_UNSIGNED_BYTE),
+                            'i': (GLint, GL_INT), 'I': (GLuint, GL_UNSIGNED_INT),
+                            's': (GLshort, GL_SHORT), 'S': (GLushort, GL_UNSIGNED_SHORT)}
+                            
 pyvars = re.compile('[_a-zA-Z][_\w]+')
 
 map_info = namedtuple('MappingInformation', ['access', 'target', 'ptr', 'size'])
@@ -143,7 +147,7 @@ class BufferFormat(object):
     __fields__ = ['struct', 'item', 'tokens']
     
     pattern = re.compile(r'\((\d)+([fdbBsSiI])\)\[(\w+)\]')
-    token = namedtuple('FormatToken', ('size', 'type', 'name'))
+    token = namedtuple('FormatToken', ('offset', 'gl_type', 'size', 'type', 'name', ))
     
     @staticmethod
     def new(format):
@@ -199,12 +203,12 @@ class BufferFormat(object):
         if len(format_str) == 0:
             raise BufferFormatError('Format must be present')
         
-        tokens = []
-        
+        # Create the tokens
+        tokens, offset = [], 0
         for match in BufferFormat.pattern.finditer(format_str):
             groups = match.groups()
             
-            _type = BUFFER_FORMAT_TYPES_MAP.get(groups[1])
+            _type, gl_type = BUFFER_FORMAT_TYPES_MAP.get(groups[1])
             size=int(groups[0])
             
             name=groups[2]
@@ -212,7 +216,9 @@ class BufferFormat(object):
             if name_match is None or name_match.span() != (0, len(name)):
                 raise ValueError('"{}" is not a valid variable name'.format(name))
             
-            tokens.append(BufferFormat.token(size=size, type=_type*size, name=name))
+            token = BufferFormat.token(size=size, type=_type*size, name=name, gl_type=gl_type, offset=offset)
+            tokens.append(token)
+            offset += sizeof(token.type)
             format_str_2 += format_str[match.start():match.end()]
             
         if format_str_2 != format_str:

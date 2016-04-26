@@ -20,7 +20,7 @@ else:
    
 
 setup(name='pyglbuffers',
-      version='1.1.0',
+      version='1.2.0',
       description='OpenGL buffers wrapper for python',
       author='Gabriel Dubé',
       author_email='gdube@azanka.ca',
